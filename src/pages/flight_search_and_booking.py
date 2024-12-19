@@ -94,21 +94,19 @@ async def show_flight_search_and_booking_page(pool, user_id):
     cities = await get_cities(pool)
     st.title("Поиск и бронирование рейсов")
 
-    # Выбор города вылета
     departure_city = st.selectbox("Выберите город вылета", cities, key="departure_city")
     departure_airports = await get_airports(pool, departure_city)
     departure_airport = st.selectbox("Выберите аэропорт вылета", departure_airports, key="departure_airport")
 
-    # Выбор города назначения
+
     arrival_cities = [city for city in cities if city != departure_city]
     arrival_city = st.selectbox("Выберите город назначения", arrival_cities, key="arrival_city")
     arrival_airports = await get_airports(pool, arrival_city)
     arrival_airport = st.selectbox("Выберите аэропорт назначения", arrival_airports, key="arrival_airport")
 
-    # Выбор даты вылета
+
     departure_date = st.date_input("Выберите дату вылета", key="departure_date")
     flights = await search_flights(pool, departure_airport, arrival_airport, departure_date)
-    # Кнопка для поиска рейсов
     if st.button("Поиск рейсов"):
         if flights:
             st.write("Найденные рейсы:")
@@ -156,7 +154,6 @@ async def show_flight_search_and_booking_page(pool, user_id):
     st.dataframe(st.session_state.booked_flights)
 
     if st.button("Выход"):
-        # Сбрасываем состояние сессии и возвращаем на страницу входа
         st.session_state['user'] = None
         st.session_state['page'] = 'login'
         st.rerun()

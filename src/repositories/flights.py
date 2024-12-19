@@ -46,17 +46,10 @@ async def search_flights(pool, departure_airport: str, arrival_airport: str, dep
         
         
 async def add_booking(pool, sales: DataFrame) -> None:
-    query = """
-    INSERT INTO Bookings (flight_id, user_id, booking_time, status)
-    VALUES ($1, $2, $3, 'ожидает подтверждения');
-    """
+    query = "CALL create_booking($1, $2, $3);"
     async with pool.acquire() as conn:
-        await conn.executemany(
-            query,
-            sales[["flight_id", "user_id", "booking_time"]].itertuples(
-                index=False, name=None
-            ),
-        )
+        for _, row in sales.iterrows():
+            await conn.execute(query, row['flight_id'], row['user_id'], row['booking_time'])
 
 async def create_booking(pool, flight_id: int, user_id: int, booking_date: datetime) -> None:
     #booking_time_dt = datetime.strptime(booking_time, "%Y-%m-%d %H:%M:%S")

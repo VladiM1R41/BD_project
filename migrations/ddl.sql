@@ -129,12 +129,10 @@ JOIN
 CREATE OR REPLACE FUNCTION decrement_seat_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Уменьшаем количество мест на 1 для рейса, на который делается бронирование
     UPDATE Flights
     SET number_seats = number_seats - 1
     WHERE flight_id = NEW.flight_id AND number_seats > 0;
 
-    -- Возвращаем новую запись
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -147,18 +145,31 @@ EXECUTE FUNCTION decrement_seat_count();
 CREATE OR REPLACE FUNCTION increment_seat_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Увеличиваем количество мест на 1 для рейса, на который было удалено бронирование
     UPDATE Flights
     SET number_seats = number_seats + 1
     WHERE flight_id = OLD.flight_id;
 
-    -- Возвращаем удалённую запись
+
     RETURN OLD;
 END;
 $$ LANGUAGE plpgsql;
 
--- Триггер для удаления бронирования
+
 CREATE TRIGGER after_booking_delete
 AFTER DELETE ON Bookings
 FOR EACH ROW
 EXECUTE FUNCTION increment_seat_count();
+
+CREATE OR REPLACE PROCEDURE create_booking(
+    flight_id INT,
+    user_id INT,
+    booking_date TIMESTAMP
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    INSERT INTO Bookings (flight_id, user_id, booking_time, status)
+    VALUES (flight_id, user_id, booking_date, 'ожидает подтверждения');
+    
+END;
+$$;

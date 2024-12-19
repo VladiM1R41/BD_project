@@ -7,7 +7,7 @@ for key in ["DB_NAME", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT"]:
     value = os.getenv(key)
     print(f"{key}: {value}")
 
-# Чтение и установка env
+
 DB_CONFIG = {
     "database": os.getenv("DB_NAME"),
     "user": os.getenv("DB_USER"),
@@ -16,6 +16,6 @@ DB_CONFIG = {
     "port": os.getenv("DB_PORT"),
 }
 
-# Pool settings
+
 POOL_MIN_CONN = int(os.getenv("POOL_MIN_CONN", 1))
 POOL_MAX_CONN = int(os.getenv("POOL_MAX_CONN", 10))

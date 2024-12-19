@@ -29,23 +29,21 @@ async def main():
 
     st.sidebar.title("Навигация")
 
-    # Проверяем, существует ли пользователь в сессии
     if 'user' not in st.session_state or st.session_state['user'] is None:
         if 'page' not in st.session_state:
             st.session_state['page'] = 'login'
         if st.session_state['page'] == 'login':
-            await login_page(pool)  # Если пользователь не авторизован, показываем страницу входа
+            await login_page(pool)
         elif st.session_state['page'] == 'register':
-            await register_page(pool)  # Если пользователь хочет зарегистрироваться
+            await register_page(pool)
         return
 
-    # Получаем роль пользователя, если он существует
     user = st.session_state['user']
     user_role = user.get('role', 'user') if user else 'user'
-    user_id = user.get('id')  # Предполагается, что user_id хранится в сессиисв
+    user_id = user.get('id')
 
     if user_role == 'admin':
-        # Если пользователь администратор, показываем страницу администратора
+
         page = st.sidebar.radio(
             "Перейти к странице",
             ["Управление пользователями", "Управление рейсами", "Все брони", "Отзывы"],
@@ -59,7 +57,7 @@ async def main():
         if page == "Отзывы":
             await admin_page_reviews(pool)
     else:
-        # Для обычных пользователей
+
         page = st.sidebar.radio(
             "Перейти к странице",
             ["Поиск и бронирование рейсов", "Отзывы об авиакомпаниях", "Мой профиль"],
