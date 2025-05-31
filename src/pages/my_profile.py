@@ -4,6 +4,7 @@ from datetime import datetime
 import repositories.flights
 import repositories.user
 import asyncio
+from settings import get_redis, REDIS_KEY_PREFIX
 
 async def confirm_booking(pool, booking_id, booking_price):
     print(f"Подтверждение бронирования {booking_id}")
@@ -110,6 +111,16 @@ async def show_my_bookings_page(pool, user_id):
         st.write("Не удалось получить данные пользователя.")
 
     if st.button("Выход"):
+        auth_token = st.session_state.get("auth_token")
+        if auth_token:
+            redis_client = get_redis()
+        
+            redis_client.delete(
+                f"{REDIS_KEY_PREFIX}auth_token:{auth_token}",
+                f"{REDIS_KEY_PREFIX}session:{auth_token}"
+            )
+    
+        st.session_state.clear()
         st.session_state['user'] = None
         st.session_state['page'] = 'login'
         st.rerun()

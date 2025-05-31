@@ -3,21 +3,40 @@ import psycopg2.extras
 import asyncpg
 from datetime import datetime
 from pandas import DataFrame
+from settings import get_redis, REDIS_KEY_PREFIX, CITIES_TTL, AIRPORTS_TTL
+import json
 
 
 
 async def get_cities(pool) -> list[dict]:
     print("Получение городов")
+    redis_client = get_redis()
+    cache_key = f"{REDIS_KEY_PREFIX}cities"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
     query = "SELECT DISTINCT city FROM Airports ORDER BY city;"
     async with pool.acquire() as conn:
-        return await conn.fetch(query)
+        result = await conn.fetch(query)
+    
+    redis_client.setex(cache_key, CITIES_TTL, json.dumps([dict(r) for r in result]))
+    return result
         
 async def get_airports(pool, city: str) -> list[dict]:
     print(f"Получение аэропортов для города: {city}")
+    redis_client = get_redis()
+    cache_key = f"{REDIS_KEY_PREFIX}airports:{city}"
+    cached = redis_client.get(cache_key)
+    if cached:
+        return json.loads(cached)
+    
     query = "SELECT name FROM Airports WHERE city = $1 ORDER BY name;"
     async with pool.acquire() as conn:
-        return await conn.fetch(query, city)
-        
+        result =  await conn.fetch(query, city)
+    
+    redis_client.setex(cache_key, AIRPORTS_TTL, json.dumps([dict(r) for r in result]))
+    return result
 
 async def search_flights(pool, departure_airport: str, arrival_airport: str, departure_date: str) -> list[dict]:
     print(f"Поиск рейсов из аэропорта {departure_airport} в аэропорт {arrival_airport} на {departure_date}")

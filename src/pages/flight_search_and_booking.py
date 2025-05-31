@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 import asyncio
 from services.book import BookingService
+from settings import get_redis, REDIS_KEY_PREFIX
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -17,7 +18,6 @@ async def get_cities(pool) -> list[str]:
         print("Получение городов")
         cities = await repositories.flights.get_cities(pool)
         
-        # Дополнительная проверка результата
         if not cities:
             st.warning("Не удалось получить список городов. Проверьте подключение к базе данных.")
             return []
@@ -33,7 +33,6 @@ async def get_airports(pool, city: str) -> list[str]:
         print(f"Получение аэропортов для города: {city}")
         airports = await repositories.flights.get_airports(pool, city)
         
-        # Дополнительная проверка результата
         if not airports:
             st.warning(f"Не удалось получить аэропорты для города {city}.")
             return []
@@ -49,7 +48,6 @@ async def search_flights(pool, departure_airport: str, arrival_airport: str, dep
     try:
         print(f"Поиск рейсов из {departure_airport} в {arrival_airport} на {departure_date}")
         
-        # Проверка, что города и аэропорты не совпадают
         if departure_airport == arrival_airport:
             st.warning("Аэропорт вылета и прилета не могут совпадать!")
             return []
@@ -144,7 +142,7 @@ async def show_flight_search_and_booking_page(pool, user_id):
         book_flight(selected_flight, user_id)
     if clear_table_btn:
         clear_table_event()
-    if apply_btn and not st.session_state.booked_flights.empty:
+    if apply_btn and hasattr(st.session_state, 'booked_flights') and not st.session_state.booked_flights.empty:
         await upload_sales(st.session_state.booked_flights, pool)
         #repositories.flights.decrement_seat_count(selected_flight)
         st.success("Подтвердите бронь на странице 'Мой профиль'")
@@ -154,6 +152,16 @@ async def show_flight_search_and_booking_page(pool, user_id):
     st.dataframe(st.session_state.booked_flights)
 
     if st.button("Выход"):
+        auth_token = st.session_state.get("auth_token")
+        if auth_token:
+            redis_client = get_redis()
+        
+            redis_client.delete(
+                f"{REDIS_KEY_PREFIX}auth_token:{auth_token}",
+                f"{REDIS_KEY_PREFIX}session:{auth_token}"
+            )
+    
+        st.session_state.clear()
         st.session_state['user'] = None
         st.session_state['page'] = 'login'
         st.rerun()

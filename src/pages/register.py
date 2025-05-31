@@ -16,6 +16,6 @@ async def register_page(pool):
         if await register_user(pool, name, new_login, new_password):
             st.success("Регистрация успешна!")
             st.session_state['page'] = 'login'
-            st.rerun()  # Перезагружаем страницу
+            st.rerun()
         else:
             st.error("Ошибка регистрации. Возможно, логин уже занят.")

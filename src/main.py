@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 import asyncio
 import asyncpg
 from pages.flight_search_and_booking import show_flight_search_and_booking_page
@@ -7,7 +8,7 @@ from pages.login import login_page
 from pages.register import register_page
 from pages.admin import admin_page_bookings,admin_page_flights,admin_page_users, admin_page_reviews
 from pages.airline_reviews import show_airline_reviews_page
-from settings import DB_CONFIG, POOL_MAX_CONN, POOL_MIN_CONN
+from settings import DB_CONFIG, POOL_MAX_CONN, POOL_MIN_CONN,get_redis, REDIS_KEY_PREFIX,TOKEN_TTL, SESSION_TTL
 
 
 async def create_connection_pool():
@@ -24,6 +25,32 @@ async def close_connection_pool(connection_pool: asyncpg.Pool):
 
 
 async def main():
+    redis_client = get_redis()
+    auth_token = st.session_state.get("auth_token")
+    
+    if auth_token:
+        # Проверяем токен в Redis
+        user_id = redis_client.get(f"{REDIS_KEY_PREFIX}auth_token:{auth_token}")
+        
+        if not user_id:
+            st.session_state.clear()
+            st.error("Сессия истекла")
+            st.rerun()
+        
+        # Обновляем время последней активности
+        session_key = f"{REDIS_KEY_PREFIX}session:{auth_token}"
+        redis_client.hset(session_key, "last_activity", datetime.now().isoformat())
+        redis_client.expire(session_key, SESSION_TTL)
+        redis_client.expire(f"{REDIS_KEY_PREFIX}auth_token:{auth_token}", TOKEN_TTL)
+        
+        # Загружаем данные пользователя
+        if 'user' not in st.session_state:
+            user_data = redis_client.hgetall(session_key)
+            st.session_state['user'] = {
+                "id": int(user_data[b'user_id']),
+                "role": user_data[b'role'].decode(),
+                "username": user_data[b'username'].decode()
+            }
 
     pool: asyncpg.Pool = await create_connection_pool()
 

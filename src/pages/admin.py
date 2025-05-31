@@ -1,9 +1,12 @@
 import streamlit as st
+import threading
 from datetime import datetime
 import asyncio
+import json
 import pandas as pd
 import repositories.flights
 import repositories.user
+from settings import get_redis, REDIS_KEY_PREFIX
 
 async def fetch_users(pool):
     return await repositories.user.get_all_users(pool)
@@ -19,6 +22,29 @@ async def fetch_payments(pool):
 
 async def fetch_reviews(pool):
     return await repositories.flights.get_all_reviews(pool)
+
+
+def listen_bookings():
+    redis_client = get_redis()
+    pubsub = redis_client.pubsub()
+    pubsub.subscribe(f"{REDIS_KEY_PREFIX}bookings")  # Подписываемся на канал
+    
+    while True:
+        message = pubsub.get_message()  # Получаем сообщение
+        if message and message['type'] == 'message':
+            try:
+                data = json.loads(message['data'])
+                # Сохраняем событие в session_state
+                st.session_state.last_booking_event = data
+                st.experimental_rerun()  # Триггерим обновление страницы
+            except Exception as e:
+                print(f"Ошибка обработки сообщения: {e}")
+
+# Запускаем поток при первом открытии админки
+if "pubsub_thread" not in st.session_state:
+    thread = threading.Thread(target=listen_bookings, daemon=True)
+    thread.start()
+    st.session_state.pubsub_thread = thread
 
 async def admin_page_users(pool):
     st.title("Административная панель")
@@ -131,6 +157,11 @@ async def admin_page_flights(pool):
 async def admin_page_bookings(pool):
     st.title("Административная панель")
 
+    if 'last_booking_event' in st.session_state:
+        event = st.session_state.last_booking_event
+        st.toast(f"Новое бронирование! Рейс #{event['flight_id']}", icon="✈️")
+        del st.session_state.last_booking_event
+
     if 'bookings' not in st.session_state:
         st.session_state.bookings = await fetch_bookings(pool)
 
@@ -193,6 +224,16 @@ async def admin_page_reviews(pool):
                 else:
                     st.error("Ошибка: ID отзыва должен быть целым числом.")
     if st.button("Выход"):
+        auth_token = st.session_state.get("auth_token")
+        if auth_token:
+            redis_client = get_redis()
+        
+            redis_client.delete(
+                f"{REDIS_KEY_PREFIX}auth_token:{auth_token}",
+                f"{REDIS_KEY_PREFIX}session:{auth_token}"
+            )
+    
+        st.session_state.clear()
         st.session_state['user'] = None
         st.session_state['page'] = 'login'
         st.rerun()
